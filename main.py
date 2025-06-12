@@ -41,6 +41,7 @@ def main():
         print(f"   姓名: {result['name']}")
         print(f"   性别: {result['gender']}")
         print(f"   年龄: {result['age']}")
+        print(f"   出生年月日: {result['birthdate']}")  # 新增
         print(f"   国籍: {result['nationality']}")
         print(f"   来日年份: {result['arrival_year_japan']}")
         print(f"   经验: {result['experience']}")

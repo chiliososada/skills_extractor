@@ -1,6 +1,7 @@
 from .name_extractor import NameExtractor
 from .gender_extractor import GenderExtractor
 from .age_extractor import AgeExtractor
+from .birthdate_extractor import BirthdateExtractor
 from .nationality_extractor import NationalityExtractor
 from .arrival_year_extractor import ArrivalYearExtractor
 from .experience_extractor import ExperienceExtractor
@@ -13,6 +14,7 @@ __all__ = [
     "NameExtractor",
     "GenderExtractor",
     "AgeExtractor",
+    "BirthdateExtractor",
     "NationalityExtractor",
     "ArrivalYearExtractor",
     "ExperienceExtractor",

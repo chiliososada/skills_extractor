@@ -16,6 +16,7 @@ from extractors.japanese_level_extractor import JapaneseLevelExtractor
 from extractors.skills_extractor import SkillsExtractor
 from extractors.work_scope_extractor import WorkScopeExtractor
 from extractors.role_extractor import RoleExtractor
+from extractors.birthdate_extractor import BirthdateExtractor  # 新增
 from utils.text_utils import dataframe_to_text
 
 
@@ -28,25 +29,28 @@ class ResumeExtractor:
             "name": "",
             "gender": None,
             "age": "",
+            "birthdate": None,  # 新增出生年月日字段
             "nationality": None,
             "arrival_year_japan": None,
             "skills": [],
             "experience": "",
             "japanese_level": "",
-            "work_scope": [],  # 新增作业范围字段
+            "work_scope": [],
+            "roles": [],  # 新增角色字段
         }
 
         # 初始化各个提取器
         self.name_extractor = NameExtractor()
         self.gender_extractor = GenderExtractor()
         self.age_extractor = AgeExtractor()
+        self.birthdate_extractor = BirthdateExtractor()  # 新增出生年月日提取器
         self.nationality_extractor = NationalityExtractor()
         self.arrival_year_extractor = ArrivalYearExtractor()
         self.experience_extractor = ExperienceExtractor()
         self.japanese_level_extractor = JapaneseLevelExtractor()
         self.skills_extractor = SkillsExtractor()
-        self.work_scope_extractor = WorkScopeExtractor()  # 新增作业范围提取器
-        self.role_extractor = RoleExtractor()  # 新增角色提取器
+        self.work_scope_extractor = WorkScopeExtractor()
+        self.role_extractor = RoleExtractor()
 
     def extract_from_excel(self, file_path: str) -> Dict:
         """从Excel文件提取简历信息
@@ -114,6 +118,9 @@ class ResumeExtractor:
             result["age"] = self.age_extractor.extract(all_data)
             print(f"✓ 年龄: {result['age']}")
 
+            result["birthdate"] = self.birthdate_extractor.extract(all_data)  # 新增
+            print(f"✓ 出生年月日: {result['birthdate']}")
+
             result["nationality"] = self.nationality_extractor.extract(all_data)
             print(f"✓ 国籍: {result['nationality']}")
 
@@ -127,15 +134,14 @@ class ResumeExtractor:
             print(f"✓ 日语: {result['japanese_level']}")
 
             result["skills"] = self.skills_extractor.extract(all_data)
-
             print(f"✓ 技能: {len(result['skills'])}个")
-            result["work_scope"] = self.work_scope_extractor.extract(
-                all_data
-            )  # 新增作业范围提取
+
+            result["work_scope"] = self.work_scope_extractor.extract(all_data)
             print(f"✓ 作业范围: {result['work_scope']}")
 
-            result["roles"] = self.role_extractor.extract(all_data)  # 新增角色提取
+            result["roles"] = self.role_extractor.extract(all_data)
             print(f"✓ 角色: {result['roles']}")
+
             return result
 
         except Exception as e:
