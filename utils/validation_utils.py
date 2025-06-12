@@ -5,8 +5,15 @@ import re
 from typing import List
 
 
+# -*- coding: utf-8 -*-
+"""验证工具 - 最终修复版（针对スキルシート_付.xlsx问题）"""
+
+import re
+from typing import List
+
+
 def is_valid_name(name: str) -> bool:
-    """验证是否为有效的姓名
+    """验证是否为有效的姓名 - 最终修复版
 
     Args:
         name: 待验证的姓名
@@ -16,7 +23,7 @@ def is_valid_name(name: str) -> bool:
     """
     name = str(name).strip()
 
-    # 需要排除的词
+    # 需要排除的词 - 包含学校相关词汇
     exclude_words = [
         "氏名",
         "名前",
@@ -41,6 +48,42 @@ def is_valid_name(name: str) -> bool:
         "技術",
         "年月",
         "生年月",
+        # 新増学校相关词汇
+        "大学",
+        "学校",
+        "研究科",
+        "学院",
+        "専門学校",
+        "高校",
+        "中学校",
+        "小学校",
+        "大学院",
+        "学部",
+        "研究室",
+        "工学部",
+        "理学部",
+        "文学部",
+        "法学部",
+        "経済学部",
+        "医学部",
+        "薬学部",
+        "農学部",
+        "教育学部",
+        "商学部",
+        "博士",
+        "修士",
+        "学士",
+        "卒業",
+        "在学",
+        "専攻",
+        "学科",
+        # 学位相关
+        "PhD",
+        "Master",
+        "Bachelor",
+        "MBA",
+        "修了",
+        "取得",
     ]
 
     # 检查是否包含排除词
@@ -48,8 +91,79 @@ def is_valid_name(name: str) -> bool:
         if word in name:
             return False
 
+    # 检查是否是学校名称的模式
+    school_patterns = [
+        r".*大学.*",  # 包含"大学"
+        r".*学院.*",  # 包含"学院"
+        r".*研究科.*",  # 包含"研究科"
+        r".*学校.*",  # 包含"学校"
+        r".*専門.*",  # 包含"専門"
+        r".*高等.*",  # 包含"高等"
+        r".*University.*",  # 英文大学
+        r".*College.*",  # 英文学院
+        r".*Institute.*",  # 英文研究所
+        r".*School.*",  # 英文学校
+    ]
+
+    for pattern in school_patterns:
+        if re.match(pattern, name, re.IGNORECASE):
+            return False
+
+    # 排除假名标记（单个假名字符，通常是标记用）
+    kana_markers = [
+        "ア",
+        "イ",
+        "ウ",
+        "エ",
+        "オ",
+        "カ",
+        "キ",
+        "ク",
+        "ケ",
+        "コ",
+        "サ",
+        "シ",
+        "ス",
+        "セ",
+        "ソ",
+        "タ",
+        "チ",
+        "ツ",
+        "テ",
+        "ト",
+        "ナ",
+        "ニ",
+        "ヌ",
+        "ネ",
+        "ノ",
+        "ハ",
+        "ヒ",
+        "フ",
+        "ヘ",
+        "ホ",
+        "マ",
+        "ミ",
+        "ム",
+        "メ",
+        "モ",
+        "ヤ",
+        "ユ",
+        "ヨ",
+        "ラ",
+        "リ",
+        "ル",
+        "レ",
+        "ロ",
+        "ワ",
+        "ヲ",
+        "ン",
+    ]
+
+    if name in kana_markers:
+        return False
+
     # 长度检查
-    if len(name) < 2 or len(name) > 15:
+    if len(name) < 1 or len(name) > 15:
         return False
 
     # 不能全是数字
@@ -69,6 +183,10 @@ def is_valid_name(name: str) -> bool:
         parts = re.split(r"[\s　]+", name)
         if len(parts) == 2 and all(len(p) >= 1 for p in parts):
             return True
+
+    # 排除过长的组织名称（包含特殊符号）
+    if len(name) > 10 and any(char in name for char in ["・", "・", "-", "ー"]):
+        return False
 
     return True
 

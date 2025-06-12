@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""年龄提取器 - 改进版"""
+"""年龄提取器 - 修复版：支持从生年月日计算年龄"""
 
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -13,13 +13,16 @@ from utils.date_utils import convert_excel_serial_to_date, calculate_age_from_bi
 
 
 class AgeExtractor(BaseExtractor):
-    """年龄信息提取器"""
+    """年龄信息提取器 - 修复版"""
 
-    def extract(self, all_data: List[Dict[str, Any]]) -> str:
-        """提取年龄
+    def extract(
+        self, all_data: List[Dict[str, Any]], birthdate_result: Optional[str] = None
+    ) -> str:
+        """提取年龄，如果没有直接年龄信息，则从生年月日计算
 
         Args:
             all_data: 包含所有sheet数据的列表
+            birthdate_result: 已提取的生年月日信息
 
         Returns:
             年龄字符串，如果未找到返回空字符串
@@ -62,13 +65,7 @@ class AgeExtractor(BaseExtractor):
                 print(f"    从行文本提取到 {len(row_candidates)} 个候选年龄")
             candidates.extend(row_candidates)
 
-            # 方法6: 基于生年月日的后备方案
-            if not candidates:
-                birth_candidates = self._extract_from_birthdate_fallback(df)
-                if birth_candidates:
-                    print(f"    从生年月日计算得到 {len(birth_candidates)} 个候选年龄")
-                candidates.extend(birth_candidates)
-
+        # 如果找到了直接的年龄信息，使用它
         if candidates:
             # 统计每个年龄的总置信度
             age_scores = defaultdict(float)
@@ -77,11 +74,43 @@ class AgeExtractor(BaseExtractor):
 
             # 选择置信度最高的年龄
             best_age = max(age_scores.items(), key=lambda x: x[1])
-            print(f"\n✅ 最终选择年龄: {best_age[0]} (置信度: {best_age[1]:.2f})")
+            print(f"\n✅ 从直接提取获得年龄: {best_age[0]} (置信度: {best_age[1]:.2f})")
             return best_age[0]
+
+        # 如果没有直接年龄信息，但有生年月日，则计算年龄
+        if birthdate_result:
+            calculated_age = self._calculate_age_from_birthdate(birthdate_result)
+            if calculated_age:
+                print(f"\n✅ 从生年月日计算得到年龄: {calculated_age}")
+                return calculated_age
 
         print("\n❌ 未能提取到年龄")
         return ""
+
+    def _calculate_age_from_birthdate(self, birthdate_str: str) -> Optional[str]:
+        """从生年月日计算年龄"""
+        try:
+            birthdate = datetime.strptime(birthdate_str, "%Y-%m-%d")
+            current_date = datetime.now()
+
+            age = current_date.year - birthdate.year
+            if (current_date.month, current_date.day) < (
+                birthdate.month,
+                birthdate.day,
+            ):
+                age -= 1
+
+            # 验证年龄合理性
+            if 15 <= age <= 80:
+                print(f"    计算年龄: {birthdate_str} → {age}岁")
+                return str(age)
+            else:
+                print(f"    计算出的年龄不合理: {age}")
+                return None
+
+        except ValueError as e:
+            print(f"    生年月日格式错误: {e}")
+            return None
 
     def _extract_from_row_text(self, df: pd.DataFrame) -> List[tuple]:
         """从整行文本中提取年龄（处理跨单元格的情况）"""
@@ -273,59 +302,6 @@ class AgeExtractor(BaseExtractor):
                     if pd.notna(context_cell):
                         context_str = str(context_cell)
                         if any(k in context_str for k in age_keywords):
-                            return True
-
-        return False
-
-    def _extract_from_birthdate_fallback(self, df: pd.DataFrame) -> List[tuple]:
-        """基于生年月日的后备年龄提取方案"""
-        candidates = []
-
-        for row in range(min(30, len(df))):
-            for col in range(len(df.columns)):
-                cell = df.iloc[row, col]
-
-                # 检查文本中的年份（如 "1994年"）
-                if pd.notna(cell):
-                    cell_str = str(cell)
-                    # 多种年份格式
-                    year_patterns = [
-                        r"(19[5-9]\d|20[0-1]\d)年",  # 1950-2019年
-                        r"(19[5-9]\d|20[0-1]\d)\.",  # 1994.
-                        r"(19[5-9]\d|20[0-1]\d)/",  # 1994/
-                        r"^(19[5-9]\d|20[0-1]\d)$",  # 纯年份
-                    ]
-
-                    for pattern in year_patterns:
-                        match = re.search(pattern, cell_str)
-                        if match:
-                            year = int(match.group(1))
-                            if 1950 <= year <= 2010:
-                                # 检查是否有生年月日相关上下文
-                                if self._has_birthdate_context(df, row, col):
-                                    age_val = 2024 - year
-                                    if 18 <= age_val <= 65:
-                                        candidates.append((str(age_val), 2.0))
-                                        print(
-                                            f"    行{row}, 列{col}: 从生年 {year} 计算得到年龄 {age_val}"
-                                        )
-                                    break
-
-        return candidates
-
-    def _has_birthdate_context(self, df: pd.DataFrame, row: int, col: int) -> bool:
-        """检查是否有生年月日相关的上下文"""
-        birth_keywords = ["生年月日", "生年月", "生年", "誕生日", "出生", "Birth"]
-
-        # 检查附近区域
-        for r_off in range(-3, 4):
-            for c_off in range(-5, 5):
-                r = row + r_off
-                c = col + c_off
-                if 0 <= r < len(df) and 0 <= c < len(df.columns):
-                    cell = df.iloc[r, c]
-                    if pd.notna(cell):
-                        if any(k in str(cell) for k in birth_keywords):
                             return True
 
         return False
