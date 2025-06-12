@@ -26,16 +26,29 @@ class RoleExtractor(BaseExtractor):
             "作業範囲",
         ]
 
-        # 角色关键词
-        self.role_keywords = ["SE", "PG", "PL", "PM", "TL"]
+        # 角色关键词 - 更新以包含所有职位
+        self.role_keywords = ["PM", "PL", "SL", "TL", "BSE", "SE", "PG"]
 
-        # 角色级别映射（数字越大，级别越高）
+        # 角色级别映射（数字越大，级别越高）- 更新以包含新职位
         self.role_levels = {
-            "PM": 5,  # Project Manager - 最高级别
-            "PL": 4,  # Project Leader
+            "PM": 6,  # Project Manager - 最高级别
+            "PL": 5,  # Project Leader
+            "SL": 4,  # Sub Leader - 介于PL和TL之间
             "TL": 3,  # Team Leader
+            "BSE": 2.5,  # Bridge System Engineer - 介于SE和TL之间
             "SE": 2,  # System Engineer
             "PG": 1,  # Programmer - 最低级别
+        }
+
+        # 角色的全称映射（用于更准确的匹配）
+        self.role_full_names = {
+            "PM": ["Project Manager", "プロジェクトマネージャー", "プロマネ"],
+            "PL": ["Project Leader", "プロジェクトリーダー"],
+            "SL": ["Sub Leader", "サブリーダー", "副リーダー"],
+            "TL": ["Team Leader", "チームリーダー"],
+            "BSE": ["Bridge System Engineer", "ブリッジSE", "Bridge SE"],
+            "SE": ["System Engineer", "システムエンジニア"],
+            "PG": ["Programmer", "プログラマー", "プログラマ"],
         }
 
     def extract(self, all_data: List[Dict[str, Any]]) -> List[str]:
@@ -56,7 +69,7 @@ class RoleExtractor(BaseExtractor):
             print(f"\n🔍 开始角色提取 - Sheet: {sheet_name}")
             print(f"    表格大小: {df.shape[0]}行 x {df.shape[1]}列")
 
-            # 从底部向上查找作业范围
+            # 方法1：从底部向上查找作业范围
             design_row = self._find_design_row_from_bottom(df)
 
             if design_row is not None:
@@ -78,6 +91,12 @@ class RoleExtractor(BaseExtractor):
                     print("    未找到角色列")
             else:
                 print("    未找到作业范围行")
+
+            # 方法2：全文搜索角色（作为备用方法）
+            if not all_roles:
+                print("    使用备用方法：全文搜索")
+                fallback_roles = self._extract_roles_fallback(df)
+                all_roles.update(fallback_roles)
 
         # 按照职位级别排序
         sorted_roles = self._sort_roles_by_level(list(all_roles))
@@ -145,6 +164,12 @@ class RoleExtractor(BaseExtractor):
                 if re.search(pattern, cell_str, re.IGNORECASE):
                     return True
 
+        # 检查角色的全称
+        for role, full_names in self.role_full_names.items():
+            for full_name in full_names:
+                if full_name in cell_str:
+                    return True
+
         return False
 
     def _extract_roles_from_column(
@@ -160,16 +185,48 @@ class RoleExtractor(BaseExtractor):
                 cell_str = str(cell).strip()
 
                 # 提取角色
-                for role in self.role_keywords:
-                    patterns = [
-                        rf"^{role}$",  # 完全匹配
-                        rf"(?:^|[^A-Za-z]){role}(?:[^A-Za-z]|$)",  # 前后非字母
-                    ]
+                extracted_role = self._extract_role_from_text(cell_str)
+                if extracted_role:
+                    roles.add(extracted_role)
 
-                    for pattern in patterns:
-                        if re.search(pattern, cell_str, re.IGNORECASE):
-                            roles.add(role.upper())
-                            break
+        return roles
+
+    def _extract_role_from_text(self, text: str) -> Optional[str]:
+        """从文本中提取角色"""
+        # 首先检查精确匹配
+        for role in self.role_keywords:
+            patterns = [
+                rf"^{role}$",  # 完全匹配
+                rf"(?:^|[^A-Za-z]){role}(?:[^A-Za-z]|$)",  # 前后非字母
+            ]
+
+            for pattern in patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    return role.upper()
+
+        # 检查全称匹配
+        for role, full_names in self.role_full_names.items():
+            for full_name in full_names:
+                if full_name in text:
+                    return role.upper()
+
+        return None
+
+    def _extract_roles_fallback(self, df: pd.DataFrame) -> Set[str]:
+        """备用方法：全文搜索角色"""
+        roles = set()
+
+        # 将整个DataFrame转换为文本
+        for idx in range(len(df)):
+            for col in range(len(df.columns)):
+                cell = df.iloc[idx, col]
+                if pd.notna(cell):
+                    cell_str = str(cell).strip()
+
+                    # 提取角色
+                    extracted_role = self._extract_role_from_text(cell_str)
+                    if extracted_role:
+                        roles.add(extracted_role)
 
         return roles
 

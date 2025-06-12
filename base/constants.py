@@ -262,7 +262,7 @@ EXCLUDE_PATTERNS = [
     r"^(単体|結合|総合|運用)[試験テスト]",
     r"^保守運用$",
     r"^要件定義$",
-    r"^(SE|PG|PL|PM|TL)$",
+    r"^(PM|PL|SL|TL|BSE|SE|PG)$",
     r"^管理$",
     r"管理経験",
     r"^教\s*育$",

@@ -299,7 +299,7 @@ class SkillsExtractor(BaseExtractor):
                     break
 
                 # 跳过职位标记
-                if cell_str in ["SE", "PG", "PL", "PM", "TL"]:
+                if cell_str.upper() in ["PM", "PL", "SL", "TL", "BSE", "SE", "PG"]:
                     continue
 
                 # 处理多行内容（换行符分隔）
@@ -556,7 +556,7 @@ class SkillsExtractor(BaseExtractor):
             return True
 
         # 特殊排除：职位标记
-        if skill.upper() in ["SE", "PG", "PL", "PM", "TL"]:
+        if skill.upper() in ["PM", "PL", "SL", "TL", "BSE", "SE", "PG"]:
             return False
 
         # 检查预定义技能列表
