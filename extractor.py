@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""主提取器类 - 修复版"""
+"""主提取器类 - 修复版：统一返回null"""
 
 import pandas as pd
-from typing import Dict, List
+from typing import Dict, List, Optional, Any
 import traceback
 from pathlib import Path
 
@@ -25,18 +25,19 @@ class ResumeExtractor:
 
     def __init__(self):
         """初始化提取器"""
+        # 修改模板：所有字段默认为None
         self.template = {
-            "name": "",
+            "name": None,
             "gender": None,
-            "age": "",
+            "age": None,
             "birthdate": None,
             "nationality": None,
             "arrival_year_japan": None,
-            "skills": [],
-            "experience": "",
-            "japanese_level": "",
-            "work_scope": [],
-            "roles": [],
+            "skills": None,
+            "experience": None,
+            "japanese_level": None,
+            "work_scope": None,
+            "roles": None,
         }
 
         # 初始化各个提取器
@@ -51,6 +52,34 @@ class ResumeExtractor:
         self.skills_extractor = SkillsExtractor()
         self.work_scope_extractor = WorkScopeExtractor()
         self.role_extractor = RoleExtractor()
+
+    def _normalize_result(self, value: Any) -> Optional[Any]:
+        """标准化提取结果
+
+        Args:
+            value: 提取的原始值
+
+        Returns:
+            标准化后的值：
+            - 空字符串 -> None
+            - 空列表 -> None
+            - 其他空值 -> None
+            - 有效值 -> 原值
+        """
+        if value is None:
+            return None
+
+        # 处理字符串
+        if isinstance(value, str):
+            value = value.strip()
+            return value if value else None
+
+        # 处理列表
+        if isinstance(value, list):
+            return value if value else None
+
+        # 其他类型直接返回
+        return value
 
     def extract_from_excel(self, file_path: str) -> Dict:
         """从Excel文件提取简历信息 - 修复版
@@ -110,43 +139,54 @@ class ResumeExtractor:
             print(f"包含 {len(all_data)} 个有效sheet")
 
             # 基本信息
-            result["name"] = self.name_extractor.extract(all_data)
+            name_result = self.name_extractor.extract(all_data)
+            result["name"] = self._normalize_result(name_result)
             print(f"✓ 姓名: {result['name']}")
 
-            result["gender"] = self.gender_extractor.extract(all_data)
+            gender_result = self.gender_extractor.extract(all_data)
+            result["gender"] = self._normalize_result(gender_result)
             print(f"✓ 性别: {result['gender']}")
 
             # 先提取生年月日，再用它来计算年龄
-            result["birthdate"] = self.birthdate_extractor.extract(all_data)
+            birthdate_result = self.birthdate_extractor.extract(all_data)
+            result["birthdate"] = self._normalize_result(birthdate_result)
             print(f"✓ 出生年月日: {result['birthdate']}")
 
             # 修复：年龄提取器现在可以接受生年月日参数
-            result["age"] = self.age_extractor.extract(all_data, result["birthdate"])
+            age_result = self.age_extractor.extract(all_data, result["birthdate"])
+            result["age"] = self._normalize_result(age_result)
             print(f"✓ 年龄: {result['age']}")
 
-            result["nationality"] = self.nationality_extractor.extract(all_data)
+            nationality_result = self.nationality_extractor.extract(all_data)
+            result["nationality"] = self._normalize_result(nationality_result)
             print(f"✓ 国籍: {result['nationality']}")
 
             # 修复：来日年份提取器现在可以排除出生年份
-            result["arrival_year_japan"] = self.arrival_year_extractor.extract(
+            arrival_result = self.arrival_year_extractor.extract(
                 all_data, result["birthdate"]
             )
+            result["arrival_year_japan"] = self._normalize_result(arrival_result)
             print(f"✓ 来日年份: {result['arrival_year_japan']}")
 
-            result["experience"] = self.experience_extractor.extract(all_data)
+            experience_result = self.experience_extractor.extract(all_data)
+            result["experience"] = self._normalize_result(experience_result)
             print(f"✓ 经验: {result['experience']}")
 
             # 修复：使用改进的日语水平提取器
-            result["japanese_level"] = self.japanese_level_extractor.extract(all_data)
+            japanese_result = self.japanese_level_extractor.extract(all_data)
+            result["japanese_level"] = self._normalize_result(japanese_result)
             print(f"✓ 日语: {result['japanese_level']}")
 
-            result["skills"] = self.skills_extractor.extract(all_data)
-            print(f"✓ 技能: {len(result['skills'])}个")
+            skills_result = self.skills_extractor.extract(all_data)
+            result["skills"] = self._normalize_result(skills_result)
+            print(f"✓ 技能: {len(skills_result) if skills_result else 0}个")
 
-            result["work_scope"] = self.work_scope_extractor.extract(all_data)
+            work_scope_result = self.work_scope_extractor.extract(all_data)
+            result["work_scope"] = self._normalize_result(work_scope_result)
             print(f"✓ 作业范围: {result['work_scope']}")
 
-            result["roles"] = self.role_extractor.extract(all_data)
+            roles_result = self.role_extractor.extract(all_data)
+            result["roles"] = self._normalize_result(roles_result)
             print(f"✓ 角色: {result['roles']}")
 
             # 后处理：如果某些字段仍然有问题，进行最后修复
@@ -175,7 +215,7 @@ class ResumeExtractor:
         print("\n🔧 后处理阶段...")
 
         # 修复1：如果年龄仍为空但有生年月日，计算年龄
-        if not result.get("age") and result.get("birthdate"):
+        if result.get("age") is None and result.get("birthdate"):
             try:
                 from datetime import datetime
 
@@ -204,7 +244,7 @@ class ResumeExtractor:
 
         # 修复3：如果日语水平为空但经验丰富，给出合理推测
         if (
-            not result.get("japanese_level")
+            result.get("japanese_level") is None
             and result.get("experience")
             and any(char.isdigit() for char in result["experience"])
         ):
@@ -234,6 +274,10 @@ class ResumeExtractor:
             if len(unique_skills) != len(result["skills"]):
                 print(f"    技能去重: {len(result['skills'])} → {len(unique_skills)}")
                 result["skills"] = unique_skills
+
+        # 最终确保所有空值都是None
+        for key, value in result.items():
+            result[key] = self._normalize_result(value)
 
         print("✅ 后处理完成")
         return result
